@@ -3,40 +3,42 @@
 
 LAYOUT_WITH_LEGEND()
 
-title CinemaAbyss - To-Be Container Diagram
+title КиноБездна - To-Be Container Diagram
 
-Person(user, "End User", "Browser / Mobile / Smart TV")
+Person(user, "Пользователь", "Браузер / Мобильное / Smart TV")
 
-System_Ext(recsys, "Recommendation System", "External recommendation engine")
+System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
+System_Ext(payment, "Платёжная система", "Внешний сервис обработки платежей")
 
-System_Boundary(platform, "CinemaAbyss Platform") {
+System_Boundary(platform, "Платформа КиноБездна") {
 
-    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nStrangler Fig pattern.\nGradual traffic migration\nvia feature flag.")
+    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nПаттерн Strangler Fig.\nПостепенная миграция трафика\nчерез feature flag.")
 
-    Container(monolith, "Monolith", "Go", "Users, Payments,\nSubscriptions domains.\nPort 8080.")
+    Container(monolith, "Монолит", "Go", "Пользователи, платежи,\nподписки.\nПорт 8080.")
 
-    Container(movies, "Movies Service", "Go", "Extracted microservice.\nFilm metadata, genres,\nratings. Port 8081.")
+    Container(movies, "Movies Service", "Go", "Выделенный микросервис.\nМетаданные фильмов, жанры,\nрейтинги. Порт 8081.")
 
-    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nMovie, User, Payment\nevents. Port 8082.")
+    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей. Порт 8082.")
 
-    ContainerDb(postgres, "PostgreSQL", "PostgreSQL 14", "Users, movies, payments,\nsubscriptions, views,\nratings.")
+    ContainerDb(postgres, "PostgreSQL", "PostgreSQL 14", "Пользователи, фильмы,\nплатежи, подписки,\nпросмотры, рейтинги.")
 
-    ContainerQueue(kafka, "Kafka", "Apache Kafka 2.7", "Topics: movie-events,\nuser-events,\npayment-events.")
+    ContainerQueue(kafka, "Kafka", "Apache Kafka 2.7", "Топики: movie-events,\nuser-events,\npayment-events.")
 
-    Container(zookeeper, "ZooKeeper", "Apache ZooKeeper", "Kafka coordination\nand leader election.")
+    Container(zookeeper, "ZooKeeper", "Apache ZooKeeper", "Координация Kafka.")
 }
 
-Rel(user, proxy, "HTTP / REST", "port 8000")
-Rel(proxy, monolith, "/api/users\n/api/payments\n/api/subscriptions\n/api/movies (fallback %)", "HTTP")
-Rel(proxy, movies, "/api/movies\n(migration %)", "HTTP")
-Rel(proxy, events, "/api/events/*", "HTTP")
+Rel(user, proxy, "API-запросы", "HTTP")
+Rel(proxy, monolith, "API-запросы", "HTTP")
+Rel(proxy, movies, "API-запросы", "HTTP")
+Rel(proxy, events, "API-запросы", "HTTP")
 
-Rel(monolith, postgres, "Read / Write", "SQL")
-Rel(movies, postgres, "Read / Write", "SQL")
+Rel(monolith, postgres, "Чтение / Запись", "SQL")
+Rel(movies, postgres, "Чтение / Запись", "SQL")
 
-Rel(events, kafka, "Produce / Consume", "Kafka protocol")
-Rel(kafka, zookeeper, "Coordination", "ZK protocol")
+Rel(events, kafka, "Публикация / Чтение", "Kafka")
+Rel(kafka, zookeeper, "Координация", "ZK")
 
-Rel(monolith, recsys, "Get recommendations", "Async")
+Rel(monolith, recsys, "Получение рекомендаций", "HTTP")
+Rel(monolith, payment, "Обработка платежей", "HTTP")
 
 @enduml
