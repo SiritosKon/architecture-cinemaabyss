@@ -1,0 +1,42 @@
+@startuml c4-container-diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title CinemaAbyss - To-Be Container Diagram
+
+Person(user, "End User", "Browser / Mobile / Smart TV")
+
+System_Ext(recsys, "Recommendation System", "External recommendation engine")
+
+System_Boundary(platform, "CinemaAbyss Platform") {
+
+    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nStrangler Fig pattern.\nGradual traffic migration\nvia feature flag.")
+
+    Container(monolith, "Monolith", "Go", "Users, Payments,\nSubscriptions domains.\nPort 8080.")
+
+    Container(movies, "Movies Service", "Go", "Extracted microservice.\nFilm metadata, genres,\nratings. Port 8081.")
+
+    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nMovie, User, Payment\nevents. Port 8082.")
+
+    ContainerDb(postgres, "PostgreSQL", "PostgreSQL 14", "Users, movies, payments,\nsubscriptions, views,\nratings.")
+
+    ContainerQueue(kafka, "Kafka", "Apache Kafka 2.7", "Topics: movie-events,\nuser-events,\npayment-events.")
+
+    Container(zookeeper, "ZooKeeper", "Apache ZooKeeper", "Kafka coordination\nand leader election.")
+}
+
+Rel(user, proxy, "HTTP / REST", "port 8000")
+Rel(proxy, monolith, "/api/users\n/api/payments\n/api/subscriptions\n/api/movies (fallback %)", "HTTP")
+Rel(proxy, movies, "/api/movies\n(migration %)", "HTTP")
+Rel(proxy, events, "/api/events/*", "HTTP")
+
+Rel(monolith, postgres, "Read / Write", "SQL")
+Rel(movies, postgres, "Read / Write", "SQL")
+
+Rel(events, kafka, "Produce / Consume", "Kafka protocol")
+Rel(kafka, zookeeper, "Coordination", "ZK protocol")
+
+Rel(monolith, recsys, "Get recommendations", "Async")
+
+@enduml

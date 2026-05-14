@@ -5,7 +5,10 @@
 1. Спроектируйте to be архитектуру КиноБездны, разделив всю систему на отдельные домены и организовав интеграционное взаимодействие и единую точку вызова сервисов.
 Результат представьте в виде контейнерной диаграммы в нотации С4.
 Добавьте ссылку на файл в этот шаблон
-[ссылка на файл](ссылка)
+
+[C4 Container Diagram (PlantUML source)](docs/c4-container-diagram.puml)
+
+![C4 Container Diagram](docs/c4-container-diagram.png)
 
 # Задание 2
 
@@ -46,6 +49,12 @@
    ```
 - Протестируйте постепенный переход, изменив переменную окружения MOVIES_MIGRATION_PERCENT в файле docker-compose.yml.
 
+**Реализация:** Proxy-сервис реализован на Node.js (Express + http-proxy-middleware) в `src/microservices/proxy/`. Маршрутизация:
+- `/health` — возвращает "Strangler Fig Proxy is healthy"
+- `/api/events/*` — проксируется в Events Service
+- `/api/movies*` — по проценту MOVIES_MIGRATION_PERCENT уходит либо в Movies Service, либо в Monolith
+- Все остальные пути (`/api/users`, `/api/payments`, `/api/subscriptions`) — проксируются в Monolith
+
 
 ### 2. Kafka
  Вам как архитектуру нужно также проверить гипотезу насколько просто реализовать применение Kafka в данной архитектуре.
@@ -58,6 +67,14 @@
 
 Необходимые тесты для проверки этого API вызываются при запуске npm run test:local из папки tests/postman 
 Приложите скриншот тестов и скриншот состояния топиков Kafka из UI http://localhost:8090 
+
+**Реализация:** Events-сервис реализован на Node.js (Express + kafkajs) в `src/microservices/events/`. API:
+- `GET /api/events/health` — health check
+- `POST /api/events/movie` — публикует событие в топик movie-events
+- `POST /api/events/user` — публикует событие в топик user-events
+- `POST /api/events/payment` — публикует событие в топик payment-events
+
+Каждый эндпоинт создаёт Kafka-сообщение через SyncProducer и возвращает partition + offset. Consumer в фоне читает все 3 топика и логирует сообщения.
 
 # Задание 3
 
@@ -109,6 +126,10 @@ jobs:
 Как только сборка отработает и в github registry появятся ваши образы, можно переходить к блоку настройки Kubernetes
 Успешным результатом данного шага является "зеленая" сборка и "зеленые" тесты
 
+**Реализация:** В `docker-build-push.yml` добавлены:
+- Ветка `cinema` в триггер push
+- Шаги Extract metadata + Build and push для Events Service (`meta-events`)
+- Шаги Extract metadata + Build and push для Proxy Service (`meta-proxy`)
 
 ### Proxy в Kubernetes
 
@@ -272,6 +293,13 @@ cat .docker/config.json | base64
   Часть тестов с health-чек упадет, но создание событий отработает.
   Откройте логи event-service и сделайте скриншот обработки событий
 
+**Реализация:**
+- `proxy-service.yaml` — Deployment (порт 8000, health-проба `/health`) + Service (ClusterIP)
+- `events-service.yaml` — Deployment (порт 8082, KAFKA_BROKERS=kafka:9092, health-проба `/api/events/health`) + Service (ClusterIP)
+- `ingress.yaml` — два пути: `/api/events` -> events-service:8082, `/` -> proxy-service:8000
+- `configmap.yaml` — добавлен EVENTS_SERVICE_URL
+- Образы: `ghcr.io/siritoskon/architecture-cinemaabyss/<service>:latest`
+
 #### Шаг 3
 Добавьте сюда скриншота вывода при вызове https://cinemaabyss.example.com/api/movies и  скриншот вывода event-service после вызова тестов.
 
@@ -349,6 +377,12 @@ minikube tunnel
 Потом вызовите 
 https://cinemaabyss.example.com/api/movies
 и приложите скриншот развертывания helm и вывода https://cinemaabyss.example.com/api/movies
+
+**Реализация:**
+- `values.yaml` — все образы обновлены на `ghcr.io/siritoskon/architecture-cinemaabyss/*`
+- `templates/services/proxy-service.yaml` — полный Deployment + Service по паттерну monolith.yaml
+- `templates/services/events-service.yaml` — полный Deployment + Service по паттерну movies-service.yaml
+- `templates/configmap.yaml` — добавлен EVENTS_SERVICE_URL, исправлен URL movies-service
 
 ## Удаляем все
 
