@@ -3,6 +3,8 @@
 
 LAYOUT_WITH_LEGEND()
 
+AddRelTag("future", $lineStyle = DashedLine(), $lineColor = "gray", $textColor = "gray")
+
 title КиноБездна - To-Be Container Diagram
 
 Person(user, "Пользователь", "Браузер / Мобильное / Smart TV")
@@ -40,5 +42,8 @@ Rel(kafka, zookeeper, "Координация", "ZK")
 
 Rel(monolith, recsys, "Получение рекомендаций", "HTTP")
 Rel(monolith, payment, "Обработка платежей", "HTTP")
+
+Rel(kafka, monolith, "Потребление событий (целевое)", "Kafka", $tags="future")
+Rel(kafka, recsys, "Потребление событий (целевое)", "Kafka", $tags="future")
 
 @enduml
