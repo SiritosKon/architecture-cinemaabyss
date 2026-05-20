@@ -24,7 +24,7 @@ System_Boundary(platform, "Платформа КиноБездна") {
 
     ContainerDb(postgres_monolith, "PostgreSQL (Монолит)", "PostgreSQL 14", "users, payments,\nsubscriptions, views,\netc.")
 
-    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 14", "movies, movie_genres,\nuser_ratings")
+    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 14", "movies, movie_genres,\nmovie_ratings")
 
     ContainerQueue(kafka, "Kafka", "Apache Kafka 2.7", "Топики: movie-events,\nuser-events,\npayment-events.")
 
