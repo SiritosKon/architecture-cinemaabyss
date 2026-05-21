@@ -16,13 +16,15 @@ System_Boundary(platform, "Платформа КиноБездна") {
 
     Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nПаттерн Strangler Fig.\nПостепенная миграция трафика\nчерез feature flag.")
 
-    Container(monolith, "Монолит", "Go", "Пользователи, платежи,\nподписки.\nПорт 8080.")
+    Container(monolith, "Монолит", "Go", "Пользователи, платежи,\nподписки, просмотры.\nПорт 8080.")
 
     Container(movies, "Movies Service", "Go", "Выделенный микросервис.\nМетаданные фильмов, жанры,\nрейтинги. Порт 8081.")
 
     Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей. Порт 8082.")
 
-    ContainerDb(postgres, "PostgreSQL", "PostgreSQL 14", "Пользователи, фильмы,\nплатежи, подписки,\nпросмотры, рейтинги.")
+    ContainerDb(postgres_monolith, "PostgreSQL (Монолит)", "PostgreSQL 14", "users, payments,\nsubscriptions, views,\netc.")
+
+    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 14", "movies, movie_genres,\nmovie_ratings")
 
     ContainerQueue(kafka, "Kafka", "Apache Kafka 2.7", "Топики: movie-events,\nuser-events,\npayment-events.")
 
@@ -34,8 +36,8 @@ Rel(proxy, monolith, "API-запросы", "HTTP")
 Rel(proxy, movies, "API-запросы", "HTTP")
 Rel(proxy, events, "API-запросы", "HTTP")
 
-Rel(monolith, postgres, "Чтение / Запись", "SQL")
-Rel(movies, postgres, "Чтение / Запись", "SQL")
+Rel(monolith, postgres_monolith, "Чтение / Запись", "SQL")
+Rel(movies, postgres_movies, "Чтение / Запись", "SQL")
 
 Rel(events, kafka, "Публикация / Чтение", "Kafka")
 Rel(kafka, zookeeper, "Координация", "ZK")
