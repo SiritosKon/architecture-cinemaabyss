@@ -12,6 +12,8 @@ Person(user, "Пользователь", "Браузер / Мобильное / 
 
 System_Ext(payment, "Платёжная система", "Внешний сервис обработки платежей")
 System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
+System_Ext(cinemas, "Онлайн-кинотеатры", "Внешние источники контента")
+System_Ext(s3, "S3", "Хранение видеоконтента")
 
 System_Boundary(platform, "Платформа КиноБездна") {
 
@@ -48,6 +50,8 @@ Rel_D(events, kafka, "Публикация / Чтение", "Kafka")
 
 Rel(billing, payment, "Обработка платежей", "HTTP")
 Rel(movies, recsys, "Получение рекомендаций", "HTTP")
+Rel(content, s3, "Получение видео", "HTTP")
+Rel(content, cinemas, "Агрегация контента", "HTTP")
 
 Rel(kafka, users_svc, "Потребление событий", "Kafka", $tags="future")
 Rel(kafka, billing, "Потребление событий", "Kafka", $tags="future")
