@@ -14,7 +14,12 @@ Person(user, "Пользователь", "Браузер / Мобильное / 
 System_Ext(payment, "Платёжная система", "Внешний сервис\nобработки платежей")
 System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
 System_Ext(cinemas, "Онлайн-кинотеатры", "Внешние источники контента")
-System_Ext(s3, "S3", "Хранение статики\nи видеоконтента")
+System_Ext(s3, "S3", "Хранение видеоконтента")
+
+' Внешние системы в столбик слева
+Lay_D(payment, recsys)
+Lay_D(recsys, cinemas)
+Lay_D(cinemas, s3)
 
 System_Boundary(platform, "Платформа КиноБездна") {
 
@@ -64,11 +69,10 @@ Rel_D(movies, postgres_movies, "Чтение / Запись", "SQL")
 Rel_R(events, kafka, "Публикация / Чтение", "Kafka")
 
 ' Внешние системы
-Rel(billing, payment, "Обработка платежей", "HTTP")
-Rel(movies, recsys, "Получение рекомендаций", "HTTP")
-Rel(movies, s3, "Обложки, постеры", "HTTP")
-Rel(users_svc, s3, "Аватары", "HTTP")
-Rel(content, cinemas, "Агрегация контента", "HTTP")
+Rel_L(billing, payment, "Обработка платежей", "HTTP")
+Rel_L(movies, recsys, "Получение рекомендаций", "HTTP")
+Rel_L(content, cinemas, "Агрегация контента", "HTTP")
+Rel_L(content, s3, "Получение видео", "HTTP")
 
 ' Межсервисные зависимости (оранжевые)
 Rel_L(content, billing, "Проверка подписки", "HTTP", $tags="interservice")
