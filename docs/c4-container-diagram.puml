@@ -5,15 +5,16 @@ LAYOUT_WITH_LEGEND()
 LAYOUT_TOP_DOWN()
 
 AddRelTag("future", $lineStyle = DashedLine(), $lineColor = "gray", $textColor = "gray")
+AddRelTag("interservice", $lineColor = "orange", $textColor = "orange")
 
 title КиноБездна - To-Be Container Diagram
 
 Person(user, "Пользователь", "Браузер / Мобильное / Smart TV")
 
-System_Ext(payment, "Платёжная система", "Внешний сервис обработки платежей")
+System_Ext(payment, "Платёжная система", "Внешний сервис\nобработки платежей")
 System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
 System_Ext(cinemas, "Онлайн-кинотеатры", "Внешние источники контента")
-System_Ext(s3, "S3", "Хранение видеоконтента")
+System_Ext(s3, "S3", "Хранение статики\nи видеоконтента")
 
 System_Boundary(platform, "Платформа КиноБездна") {
 
@@ -21,38 +22,60 @@ System_Boundary(platform, "Платформа КиноБездна") {
 
     Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.")
     Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.")
-    Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
     Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
+    Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
+
     Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.")
-
-    ContainerDb(postgres_users, "PostgreSQL (Users)", "PostgreSQL 16", "users")
-    ContainerDb(postgres_billing, "PostgreSQL (Billing)", "PostgreSQL 16", "payments, subscriptions")
-    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
-    ContainerDb(postgres_content, "PostgreSQL (Content)", "PostgreSQL 16", "views")
-
     ContainerQueue(kafka, "Kafka", "Apache Kafka 3.7", "Топики: movie-events,\nuser-events, payment-events,\ncontent-events.")
+
+    ContainerDb(postgres_users, "PostgreSQL\n(Users)", "PostgreSQL 16", "users")
+    ContainerDb(postgres_billing, "PostgreSQL\n(Billing)", "PostgreSQL 16", "payments,\nsubscriptions")
+    ContainerDb(postgres_content, "PostgreSQL\n(Content)", "PostgreSQL 16", "views")
+    ContainerDb(postgres_movies, "PostgreSQL\n(Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
 }
 
+' Выравнивание сервисов в ряд
+Lay_R(users_svc, billing)
+Lay_R(billing, content)
+Lay_R(content, movies)
+
+' Выравнивание БД в ряд
+Lay_R(postgres_users, postgres_billing)
+Lay_R(postgres_billing, postgres_content)
+Lay_R(postgres_content, postgres_movies)
+
+' Пользователь → Proxy
 Rel_D(user, proxy, "API-запросы", "HTTP")
 
+' Proxy → сервисы
 Rel_D(proxy, users_svc, "API-запросы", "HTTP")
 Rel_D(proxy, billing, "API-запросы", "HTTP")
-Rel_D(proxy, movies, "API-запросы", "HTTP")
 Rel_D(proxy, content, "API-запросы", "HTTP")
+Rel_D(proxy, movies, "API-запросы", "HTTP")
 Rel_D(proxy, events, "API-запросы", "HTTP")
 
+' Сервисы → свои БД
 Rel_D(users_svc, postgres_users, "Чтение / Запись", "SQL")
 Rel_D(billing, postgres_billing, "Чтение / Запись", "SQL")
-Rel_D(movies, postgres_movies, "Чтение / Запись", "SQL")
 Rel_D(content, postgres_content, "Чтение / Запись", "SQL")
+Rel_D(movies, postgres_movies, "Чтение / Запись", "SQL")
 
-Rel_D(events, kafka, "Публикация / Чтение", "Kafka")
+' Events → Kafka
+Rel_R(events, kafka, "Публикация / Чтение", "Kafka")
 
+' Внешние системы
 Rel(billing, payment, "Обработка платежей", "HTTP")
 Rel(movies, recsys, "Получение рекомендаций", "HTTP")
-Rel(content, s3, "Получение видео", "HTTP")
+Rel(movies, s3, "Обложки, постеры", "HTTP")
+Rel(users_svc, s3, "Аватары", "HTTP")
 Rel(content, cinemas, "Агрегация контента", "HTTP")
 
+' Межсервисные зависимости (оранжевые)
+Rel_L(content, billing, "Проверка подписки", "HTTP", $tags="interservice")
+Rel_L(billing, users_svc, "Данные пользователя", "HTTP", $tags="interservice")
+Rel_L(content, users_svc, "Идентификация", "HTTP", $tags="interservice")
+
+' Kafka → потребители (целевое)
 Rel(kafka, users_svc, "Потребление событий", "Kafka", $tags="future")
 Rel(kafka, billing, "Потребление событий", "Kafka", $tags="future")
 Rel(kafka, content, "Потребление событий", "Kafka", $tags="future")
