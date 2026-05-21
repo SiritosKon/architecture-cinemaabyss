@@ -19,40 +19,62 @@ System_Boundary(platform, "Платформа КиноБездна") {
 
     Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nМаршрутизация запросов\nк микросервисам.")
 
-    Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.")
-    Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.")
-    Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
-    Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
+    Boundary(b_users, "User Service") {
+        Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.")
+        ContainerDb(postgres_users, "PostgreSQL (Users)", "PostgreSQL 16", "users")
+    }
 
-    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.")
-    ContainerQueue(kafka, "Kafka", "Apache Kafka 3.7", "Топики: movie-events,\nuser-events, payment-events,\ncontent-events.")
+    Boundary(b_billing, "Billing Service") {
+        Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.")
+        ContainerDb(postgres_billing, "PostgreSQL (Billing)", "PostgreSQL 16", "payments, subscriptions")
+    }
 
-    ContainerDb(postgres_users, "PostgreSQL (Users)", "PostgreSQL 16", "users")
-    ContainerDb(postgres_billing, "PostgreSQL (Billing)", "PostgreSQL 16", "payments, subscriptions")
-    ContainerDb(postgres_content, "PostgreSQL (Content)", "PostgreSQL 16", "views")
-    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
+    Boundary(b_content, "Content Service") {
+        Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
+        ContainerDb(postgres_content, "PostgreSQL (Content)", "PostgreSQL 16", "views")
+    }
+
+    Boundary(b_movies, "Movies Service") {
+        Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
+        ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
+    }
+
+    Boundary(b_events, "Events Service") {
+        Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.")
+        ContainerQueue(kafka, "Kafka", "Apache Kafka 3.7", "Топики: movie-events,\nuser-events, payment-events,\ncontent-events.")
+    }
 }
 
+' Порядок блоков
+Lay_R(b_users, b_billing)
+Lay_R(b_billing, b_content)
+Lay_R(b_content, b_movies)
+Lay_R(b_movies, b_events)
+
+' Пользователь → Proxy
 Rel_D(user, proxy, "API-запросы", "HTTP")
 
+' Proxy → сервисы
 Rel_D(proxy, users_svc, "API-запросы", "HTTP")
 Rel_D(proxy, billing, "API-запросы", "HTTP")
 Rel_D(proxy, content, "API-запросы", "HTTP")
 Rel_D(proxy, movies, "API-запросы", "HTTP")
 Rel_D(proxy, events, "API-запросы", "HTTP")
 
+' Сервисы → БД (внутри блоков)
 Rel_D(users_svc, postgres_users, "Чтение / Запись", "SQL")
 Rel_D(billing, postgres_billing, "Чтение / Запись", "SQL")
 Rel_D(content, postgres_content, "Чтение / Запись", "SQL")
 Rel_D(movies, postgres_movies, "Чтение / Запись", "SQL")
-
 Rel_D(events, kafka, "Публикация / Чтение", "Kafka")
 
+' Внешние системы
 Rel(billing, payment, "Обработка платежей", "HTTP")
 Rel(movies, recsys, "Получение рекомендаций", "HTTP")
 Rel(content, cinemas, "Агрегация контента", "HTTP")
 Rel(content, s3, "Получение видео", "HTTP")
 
+' Kafka → потребители (целевое)
 Rel(kafka, users_svc, "Потребление событий", "Kafka", $tags="future")
 Rel(kafka, billing, "Потребление событий", "Kafka", $tags="future")
 Rel(kafka, content, "Потребление событий", "Kafka", $tags="future")
