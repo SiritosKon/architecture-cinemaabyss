@@ -2,6 +2,7 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
 
 AddRelTag("future", $lineStyle = DashedLine(), $lineColor = "gray", $textColor = "gray")
 
@@ -9,56 +10,49 @@ title КиноБездна - To-Be Container Diagram
 
 Person(user, "Пользователь", "Браузер / Мобильное / Smart TV")
 
-System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
 System_Ext(payment, "Платёжная система", "Внешний сервис обработки платежей")
+System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
 
 System_Boundary(platform, "Платформа КиноБездна") {
 
     Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nМаршрутизация запросов\nк микросервисам.")
 
     Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.")
-
     Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.")
-
-    Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
-
     Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
-
+    Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
     Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.")
 
     ContainerDb(postgres_users, "PostgreSQL (Users)", "PostgreSQL 16", "users")
-
     ContainerDb(postgres_billing, "PostgreSQL (Billing)", "PostgreSQL 16", "payments, subscriptions")
-
+    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
     ContainerDb(postgres_content, "PostgreSQL (Content)", "PostgreSQL 16", "views")
 
-    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
-
-    ContainerQueue(kafka, "Kafka", "Apache Kafka 3.7 (KRaft)", "Топики: movie-events,\nuser-events, payment-events,\ncontent-events.")
+    ContainerQueue(kafka, "Kafka", "Apache Kafka 3.7", "Топики: movie-events,\nuser-events, payment-events,\ncontent-events.")
 }
 
-Rel(user, proxy, "API-запросы", "HTTP")
+Rel_D(user, proxy, "API-запросы", "HTTP")
 
-Rel(proxy, users_svc, "API-запросы", "HTTP")
-Rel(proxy, billing, "API-запросы", "HTTP")
-Rel(proxy, content, "API-запросы", "HTTP")
-Rel(proxy, movies, "API-запросы", "HTTP")
-Rel(proxy, events, "API-запросы", "HTTP")
+Rel_D(proxy, users_svc, "API-запросы", "HTTP")
+Rel_D(proxy, billing, "API-запросы", "HTTP")
+Rel_D(proxy, movies, "API-запросы", "HTTP")
+Rel_D(proxy, content, "API-запросы", "HTTP")
+Rel_D(proxy, events, "API-запросы", "HTTP")
 
-Rel(users_svc, postgres_users, "Чтение / Запись", "SQL")
-Rel(billing, postgres_billing, "Чтение / Запись", "SQL")
-Rel(content, postgres_content, "Чтение / Запись", "SQL")
-Rel(movies, postgres_movies, "Чтение / Запись", "SQL")
+Rel_D(users_svc, postgres_users, "Чтение / Запись", "SQL")
+Rel_D(billing, postgres_billing, "Чтение / Запись", "SQL")
+Rel_D(movies, postgres_movies, "Чтение / Запись", "SQL")
+Rel_D(content, postgres_content, "Чтение / Запись", "SQL")
 
-Rel(events, kafka, "Публикация / Чтение", "Kafka")
+Rel_D(events, kafka, "Публикация / Чтение", "Kafka")
 
 Rel(billing, payment, "Обработка платежей", "HTTP")
 Rel(movies, recsys, "Получение рекомендаций", "HTTP")
 
-Rel(kafka, users_svc, "Потребление user-events", "Kafka", $tags="future")
-Rel(kafka, billing, "Потребление payment-events", "Kafka", $tags="future")
-Rel(kafka, content, "Потребление content-events", "Kafka", $tags="future")
-Rel(kafka, movies, "Потребление movie-events", "Kafka", $tags="future")
+Rel(kafka, users_svc, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, billing, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, content, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, movies, "Потребление событий", "Kafka", $tags="future")
 Rel(kafka, recsys, "Потребление событий", "Kafka", $tags="future")
 
 @enduml
