@@ -2,6 +2,7 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
 
 AddRelTag("future", $lineStyle = DashedLine(), $lineColor = "gray", $textColor = "gray")
 
@@ -9,43 +10,75 @@ title КиноБездна - To-Be Container Diagram
 
 Person(user, "Пользователь", "Браузер / Мобильное / Smart TV")
 
-System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
 System_Ext(payment, "Платёжная система", "Внешний сервис обработки платежей")
+System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
+System_Ext(cinemas, "Онлайн-кинотеатры", "Внешние источники контента")
+System_Ext(s3, "S3", "Хранение видеоконтента")
 
 System_Boundary(platform, "Платформа КиноБездна") {
 
-    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nПаттерн Strangler Fig.\nПостепенная миграция трафика\nчерез feature flag.")
+    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nМаршрутизация запросов\nк микросервисам.")
 
-    Container(monolith, "Монолит", "Go", "Пользователи, платежи,\nподписки, просмотры.\nПорт 8080.")
+    Boundary(b_users, "User Service") {
+        Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.")
+        ContainerDb(postgres_users, "PostgreSQL (Users)", "PostgreSQL 16", "users")
+    }
 
-    Container(movies, "Movies Service", "Go", "Выделенный микросервис.\nМетаданные фильмов, жанры,\nрейтинги. Порт 8081.")
+    Boundary(b_billing, "Billing Service") {
+        Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.")
+        ContainerDb(postgres_billing, "PostgreSQL (Billing)", "PostgreSQL 16", "payments, subscriptions")
+    }
 
-    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей. Порт 8082.")
+    Boundary(b_content, "Content Service") {
+        Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
+        ContainerDb(postgres_content, "PostgreSQL (Content)", "PostgreSQL 16", "views")
+    }
 
-    ContainerDb(postgres_monolith, "PostgreSQL (Монолит)", "PostgreSQL 14", "users, payments,\nsubscriptions, views,\netc.")
+    Boundary(b_movies, "Movies Service") {
+        Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
+        ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 16", "movies, movie_genres,\nuser_ratings")
+    }
 
-    ContainerDb(postgres_movies, "PostgreSQL (Movies)", "PostgreSQL 14", "movies, movie_genres,\nmovie_ratings")
-
-    ContainerQueue(kafka, "Kafka", "Apache Kafka 2.7", "Топики: movie-events,\nuser-events,\npayment-events.")
-
-    Container(zookeeper, "ZooKeeper", "Apache ZooKeeper", "Координация Kafka.")
+    Boundary(b_events, "Events Service") {
+        Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.")
+        ContainerQueue(kafka, "Kafka", "Apache Kafka 3.7", "Топики: movie-events,\nuser-events, payment-events,\ncontent-events.")
+    }
 }
 
-Rel(user, proxy, "API-запросы", "HTTP")
-Rel(proxy, monolith, "API-запросы", "HTTP")
-Rel(proxy, movies, "API-запросы", "HTTP")
-Rel(proxy, events, "API-запросы", "HTTP")
+' Порядок блоков
+Lay_R(b_users, b_billing)
+Lay_R(b_billing, b_content)
+Lay_R(b_content, b_movies)
+Lay_R(b_movies, b_events)
 
-Rel(monolith, postgres_monolith, "Чтение / Запись", "SQL")
-Rel(movies, postgres_movies, "Чтение / Запись", "SQL")
+' Пользователь → Proxy
+Rel_D(user, proxy, "API-запросы", "HTTP")
 
-Rel(events, kafka, "Публикация / Чтение", "Kafka")
-Rel(kafka, zookeeper, "Координация", "ZK")
+' Proxy → сервисы
+Rel_D(proxy, users_svc, "API-запросы", "HTTP")
+Rel_D(proxy, billing, "API-запросы", "HTTP")
+Rel_D(proxy, content, "API-запросы", "HTTP")
+Rel_D(proxy, movies, "API-запросы", "HTTP")
+Rel_D(proxy, events, "API-запросы", "HTTP")
 
-Rel(monolith, recsys, "Получение рекомендаций", "HTTP")
-Rel(monolith, payment, "Обработка платежей", "HTTP")
+' Сервисы → БД (внутри блоков)
+Rel_D(users_svc, postgres_users, "Чтение / Запись", "SQL")
+Rel_D(billing, postgres_billing, "Чтение / Запись", "SQL")
+Rel_D(content, postgres_content, "Чтение / Запись", "SQL")
+Rel_D(movies, postgres_movies, "Чтение / Запись", "SQL")
+Rel_D(events, kafka, "Публикация / Чтение", "Kafka")
 
-Rel(kafka, monolith, "Потребление событий (целевое)", "Kafka", $tags="future")
-Rel(kafka, recsys, "Потребление событий (целевое)", "Kafka", $tags="future")
+' Внешние системы
+Rel(billing, payment, "Обработка платежей", "HTTP")
+Rel(movies, recsys, "Получение рекомендаций", "HTTP")
+Rel(content, cinemas, "Агрегация контента", "HTTP")
+Rel(content, s3, "Получение видео", "HTTP")
+
+' Kafka → потребители (целевое)
+Rel(kafka, users_svc, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, billing, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, content, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, movies, "Потребление событий", "Kafka", $tags="future")
+Rel(kafka, recsys, "Потребление событий", "Kafka", $tags="future")
 
 @enduml
