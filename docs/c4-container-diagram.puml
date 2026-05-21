@@ -11,22 +11,20 @@ Person(user, "Пользователь", "Браузер / Мобильное / 
 
 System_Ext(recsys, "Рекомендательная система", "Внешний сервис подборок")
 System_Ext(payment, "Платёжная система", "Внешний сервис обработки платежей")
-System_Ext(cinemas, "Онлайн-кинотеатры", "Внешние источники контента")
-System_Ext(s3, "S3", "Хранение видеоконтента")
 
 System_Boundary(platform, "Платформа КиноБездна") {
 
-    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nМаршрутизация запросов\nк микросервисам.\nПорт 8000.")
+    Container(proxy, "Proxy Service", "Node.js / Express", "API Gateway.\nМаршрутизация запросов\nк микросервисам.")
 
-    Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.\nПорт 8083.")
+    Container(users_svc, "User Service", "Go", "Регистрация, аутентификация,\nпрофили пользователей.")
 
-    Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.\nПорт 8084.")
+    Container(billing, "Billing Service", "Go", "Платежи, подписки,\nтарифные планы, скидки.")
 
-    Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.\nПорт 8085.")
+    Container(content, "Content Service", "Go", "Просмотры, прогресс\nвоспроизведения, стриминг.")
 
-    Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.\nПорт 8081.")
+    Container(movies, "Movies Service", "Go", "Метаданные фильмов, жанры,\nрейтинги, оценки.")
 
-    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.\nПорт 8082.")
+    Container(events, "Events Service", "Node.js / Express", "Kafka producer/consumer.\nСобытия фильмов, пользователей,\nплатежей, контента.")
 
     ContainerDb(postgres_users, "PostgreSQL (Users)", "PostgreSQL 16", "users")
 
@@ -55,8 +53,6 @@ Rel(movies, postgres_movies, "Чтение / Запись", "SQL")
 Rel(events, kafka, "Публикация / Чтение", "Kafka")
 
 Rel(billing, payment, "Обработка платежей", "HTTP")
-Rel(content, s3, "Получение видео", "HTTP")
-Rel(content, cinemas, "Агрегация контента", "HTTP")
 Rel(movies, recsys, "Получение рекомендаций", "HTTP")
 
 Rel(kafka, users_svc, "Потребление user-events", "Kafka", $tags="future")
